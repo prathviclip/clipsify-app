@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Clipsify Creator Hub</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: { appBg: '#F4F5F9', cardBg: '#FFFFFF', accentViolet: '#7C3AED', textDark: '#1E1B4B', textSub: '#64748B' }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="bg-appBg text-textDark font-sans min-h-screen pb-24 antialiased">
+
+  <header class="max-w-md mx-auto px-4 pt-6 pb-2 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-violet-600 to-indigo-500 flex items-center justify-center text-white shadow-md">
+        <i class="fa-solid fa-scissors text-lg"></i>
+      </div>
+      <div>
+        <h1 class="text-lg font-extrabold leading-tight">Clipsify</h1>
+        <p class="text-[11px] text-textSub font-medium">Campaign Workspace</p>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-md mx-auto px-4 pt-4 space-y-5">
+    <div id="viewClipper" class="space-y-5">
+      <div class="space-y-3">
+        <div class="flex items-center justify-between">
+          <h2 class="text-sm font-bold flex items-center gap-2"><i class="fa-solid fa-fire text-orange-500"></i> Active Campaigns</h2>
+          <span class="text-[10px] font-bold bg-emerald-100 text-emerald-700 px-2.5 py-0.5 rounded-full">Live</span>
+        </div>
+        <div id="campaignsContainer" class="space-y-3"></div>
+      </div>
+
+      <div id="submissionCard" class="hidden bg-cardBg rounded-[28px] p-5 shadow-sm border border-slate-100 space-y-4">
+        <div class="flex items-center justify-between">
+          <div>
+            <span class="text-[10px] font-bold text-accentViolet uppercase">Selected Campaign</span>
+            <h3 id="selectedCampTitle" class="text-sm font-bold">---</h3>
+          </div>
+          <button onclick="closeSubmission()" class="text-xs text-textSub font-bold">Cancel</button>
+        </div>
+
+        <div class="bg-violet-50 border border-violet-100 p-3 rounded-2xl space-y-1.5">
+          <span class="text-[10px] font-bold text-accentViolet uppercase tracking-wider block">Required in Video Caption:</span>
+          <div class="flex items-center gap-2">
+            <span id="reqHashtag" class="bg-white border border-violet-200 text-accentViolet font-mono font-bold text-xs px-2.5 py-1 rounded-xl">#Hashtag</span>
+            <span id="reqTag" class="bg-white border border-violet-200 text-accentViolet font-mono font-bold text-xs px-2.5 py-1 rounded-xl">@Tag</span>
+          </div>
+        </div>
+
+        <div class="bg-slate-50 p-3.5 rounded-2xl border border-slate-200/80 space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="text-[11px] font-bold">Bio Verification Code</span>
+            <button onclick="generateCode()" class="text-[11px] text-accentViolet font-bold underline">Generate Code</button>
+          </div>
+          <code id="bioCodeDisplay" class="text-xs font-mono font-bold text-accentViolet block">Click 'Generate Code'</code>
+        </div>
+
+        <div class="space-y-2">
+          <label class="block text-[11px] font-bold">Paste TikTok / YouTube Short Link</label>
+          <input type="url" id="videoLinkInput" placeholder="https://www.tiktok.com/@user/video/..." class="w-full bg-slate-50 border border-slate-200/80 rounded-xl px-3.5 py-2.5 text-xs text-textDark focus:outline-none">
+          <button onclick="submitClipForCampaign()" class="w-full bg-accentViolet text-white font-bold py-2.5 rounded-xl text-xs shadow-sm">
+            Verify Tags & Submit Clip
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div id="viewAdmin" class="hidden space-y-5">
+      <div class="bg-cardBg rounded-[28px] p-5 shadow-sm border border-slate-100 space-y-3">
+        <h2 class="text-sm font-bold">Admin Approval Queue</h2>
+        <div id="adminQueue" class="space-y-3"></div>
+      </div>
+    </div>
+  </main>
+
+  <nav class="fixed bottom-4 left-4 right-4 max-w-md mx-auto bg-white/90 backdrop-blur-md rounded-full p-1.5 shadow-lg border border-slate-200/80 flex items-center justify-between z-50">
+    <button id="navClipper" onclick="switchTab('clipper')" class="flex-1 py-2.5 rounded-full text-xs font-bold flex items-center justify-center gap-2 bg-accentViolet text-white">
+      <i class="fa-solid fa-scissors"></i> Clipper View
+    </button>
+    <button id="navAdmin" onclick="switchTab('admin')" class="flex-1 py-2.5 rounded-full text-xs font-bold flex items-center justify-center gap-2 text-textSub">
+      <i class="fa-solid fa-shield-halved"></i> Admin Queue
+    </button>
+  </nav>
+
+  <script>
+    let activeCampaigns = [];
+    let selectedCampaignId = null;
+
+    async function fetchCampaigns() {
+      const res = await fetch('/api/campaigns');
+      const data = await res.json();
+      activeCampaigns = data.campaigns;
+
+      const container = document.getElementById('campaignsContainer');
+      container.innerHTML = activeCampaigns.map(camp => `
+        <div class="bg-cardBg rounded-[24px] p-4 shadow-sm border border-slate-100/80 space-y-3">
+          <div class="flex items-start justify-between">
+            <div>
+              <h3 class="text-sm font-bold">${camp.title}</h3>
+              <p class="text-xs text-emerald-600 font-extrabold mt-0.5">${camp.payout}</p>
+            </div>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="text-[10px] font-bold bg-violet-100 text-accentViolet px-2 py-0.5 rounded-lg">${camp.requiredHashtag}</span>
+            <span class="text-[10px] font-bold bg-violet-100 text-accentViolet px-2 py-0.5 rounded-lg">${camp.requiredTag}</span>
+          </div>
+          <button onclick="selectCampaign('${camp.id}')" class="w-full bg-textDark text-white font-bold py-2 rounded-xl text-xs">
+            Join & Submit Clip
+          </button>
+        </div>
+      `).join('');
+    }
+
+    function selectCampaign(id) {
+      const camp = activeCampaigns.find(c => c.id === id);
+      selectedCampaignId = id;
+      document.getElementById('selectedCampTitle').innerText = camp.title;
+      document.getElementById('reqHashtag').innerText = camp.requiredHashtag;
+      document.getElementById('reqTag').innerText = camp.requiredTag;
+      document.getElementById('submissionCard').classList.remove('hidden');
+    }
+
+    function closeSubmission() {
+      document.getElementById('submissionCard').classList.add('hidden');
+    }
+
+    async function generateCode() {
+      const res = await fetch('/api/generate-code', { method: 'POST' });
+      const data = await res.json();
+      document.getElementById('bioCodeDisplay').innerText = data.code;
+    }
+
+    async function submitClipForCampaign() {
+      const videoUrl = document.getElementById('videoLinkInput').value;
+      if(!videoUrl) return alert("Please enter a video URL");
+
+      const res = await fetch('/api/submit-clip', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ campaignId: selectedCampaignId, videoUrl })
+      });
+
+      const data = await res.json();
+      if(data.success) {
+        alert("🟢 " + data.message);
+        closeSubmission();
+        fetchAdminQueue();
+      } else {
+        alert("🔴 " + data.error);
+      }
+    }
+
+    async function fetchAdminQueue() {
+      const res = await fetch('/api/admin/submissions');
+      const data = await res.json();
+      const container = document.getElementById('adminQueue');
+
+      if (!data.submissions || data.submissions.length === 0) {
+        container.innerHTML = `<p class="text-xs text-textSub text-center py-4">No pending submissions.</p>`;
+        return;
+      }
+
+      container.innerHTML = data.submissions.map(sub => `
+        <div class="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/60 space-y-3">
+          <div class="flex items-start justify-between">
+            <div>
+              <p class="text-xs font-bold">${sub.campaignTitle}</p>
+              <a href="${sub.videoUrl}" target="_blank" class="text-[11px] text-accentViolet font-semibold underline truncate block max-w-[200px]">${sub.videoUrl}</a>
+            </div>
+            <span class="text-[10px] font-bold ${
+              sub.status === 'approved' ? 'bg-emerald-100 text-emerald-700' :
+              sub.status === 'rejected' ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700'
+            } px-2.5 py-1 rounded-full uppercase">${sub.status}</span>
+          </div>
+          <div class="flex gap-2">
+            <button onclick="updateStatus('${sub.id}', 'approved')" class="flex-1 bg-emerald-600 text-white py-1.5 rounded-xl text-xs font-bold">Approve</button>
+            <button onclick="updateStatus('${sub.id}', 'rejected')" class="flex-1 bg-rose-100 text-rose-700 py-1.5 rounded-xl text-xs font-bold">Reject</button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    async function updateStatus(submissionId, status) {
+      await fetch('/api/admin/update-status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ submissionId, status })
+      });
+      fetchAdminQueue();
+    }
+
+    function switchTab(tab) {
+      const clipperView = document.getElementById('viewClipper');
+      const adminView = document.getElementById('viewAdmin');
+      const navClipper = document.getElementById('navClipper');
+      const navAdmin = document.getElementById('navAdmin');
+
+      if(tab === 'clipper') {
+        clipperView.classList.remove('hidden');
+        adminView.classList.add('hidden');
+        navClipper.className = "flex-1 py-2.5 rounded-full text-xs font-bold flex items-center justify-center gap-2 bg-accentViolet text-white";
+        navAdmin.className = "flex-1 py-2.5 rounded-full text-xs font-bold flex items-center justify-center gap-2 text-textSub";
+      } else {
+        adminView.classList.remove('hidden');
+        clipperView.classList.add('hidden');
+        navAdmin.className = "flex-1 py-2.5 rounded-full text-xs font-bold flex items-center justify-center gap-2 bg-accentViolet text-white";
+        navClipper.className = "flex-1 py-2.5 rounded-full text-xs font-bold flex items-center justify-center gap-2 text-textSub";
+        fetchAdminQueue();
+      }
+    }
+
+    fetchCampaigns();
+  </script>
+</body>
+</html>
